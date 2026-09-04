@@ -2,13 +2,10 @@
 
 DeepText 是一个面向高中英语教学的 AI 深度文本解析工具。
 
-它不仅生成文章大意，还会从文本证据、底层逻辑、核心洞见、意义语言、教学价值和探究路径等角度进行分析。
+它不仅生成文章大意，而是尝试从：
 
-## 功能
-
-- Teacher Snapshot
+- Text Evidence
 - Underlying Logic
-- Evidence
 - Core Insight
 - Deep Shift
 - Meaning-bearing Language
@@ -17,35 +14,32 @@ DeepText 是一个面向高中英语教学的 AI 深度文本解析工具。
 - Close Reading
 - Transfer
 
-目前支持粘贴英文文本进行分析。
+等角度，为高中英语教师生成可用于备课的深度文本解析报告。
 
 ---
 
-# 在 GitHub Codespaces 中运行
+# 一键运行
 
-## 1. 创建 Codespace
+点击下面按钮即可使用 GitHub Codespaces 运行 DeepText。
 
-在本仓库页面点击：
+> 请先把下面链接中的 `YOUR_GITHUB_USERNAME`
+> 修改成你自己的 GitHub 用户名。
 
-`Code`
-
-然后选择：
-
-`Codespaces`
-
-点击：
-
-`Create codespace on main`
-
-等待环境初始化完成。
-
-项目会自动安装 Python 依赖。
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/YOUR_GITHUB_USERNAME/deeptext-english?quickstart=1)
 
 ---
 
-## 2. 创建模型配置文件
+# Codespaces 会自动完成什么？
 
-在 Codespaces 终端执行：
+创建 Codespace 后，系统会自动：
+
+1. 准备 Python 3.12 环境
+2. 安装 DeepText 所需依赖
+3. 启动 FastAPI
+4. 开放 8000 端口
+5. 自动打开 DeepText 页面
+
+不需要手动执行：
 
 ```bash
-cp backend/.env.example backend/.env
+pip install

@@ -1,0 +1,529 @@
+* {
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #f4f7f9;
+
+    --surface: #ffffff;
+
+    --text: #1f2933;
+    --secondary: #65717e;
+    --muted: #919ba5;
+
+    --primary: #253b53;
+    --primary-hover: #1c2f42;
+
+    --border: #dfe5ea;
+    --border-strong: #cfd8e0;
+
+    --success: #287c50;
+    --success-bg: #eef8f2;
+
+    --error: #a13d3d;
+    --error-bg: #fff1f1;
+
+    --info: #385d7d;
+    --info-bg: #eef4f9;
+}
+
+
+html,
+body {
+    margin: 0;
+
+    min-height: 100%;
+}
+
+
+body {
+    font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        "Microsoft YaHei",
+        sans-serif;
+
+    color: var(--text);
+
+    background:
+        radial-gradient(
+            circle at 15% 10%,
+            rgba(53, 84, 112, 0.08),
+            transparent 30%
+        ),
+        var(--bg);
+}
+
+
+/* =========================
+   页面
+========================= */
+
+.setup-page {
+    min-height: 100vh;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    padding: 32px 18px;
+}
+
+
+.setup-card {
+    width: min(
+        100%,
+        650px
+    );
+
+    padding:
+        clamp(
+            24px,
+            5vw,
+            42px
+        );
+
+    background:
+        rgba(
+            255,
+            255,
+            255,
+            0.97
+        );
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius: 20px;
+
+    box-shadow:
+        0 18px 55px
+        rgba(
+            30,
+            47,
+            65,
+            0.08
+        );
+}
+
+
+/* =========================
+   品牌
+========================= */
+
+.brand-row {
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+
+    margin-bottom: 38px;
+}
+
+
+.brand-logo {
+    width: 42px;
+    height: 42px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 12px;
+
+    background:
+        var(--primary);
+
+    color: white;
+
+    font-size: 20px;
+
+    font-weight: 800;
+}
+
+
+.brand-title {
+    font-size: 18px;
+
+    font-weight: 800;
+}
+
+
+.brand-subtitle {
+    margin-top: 2px;
+
+    color:
+        var(--secondary);
+
+    font-size: 12px;
+}
+
+
+/* =========================
+   标题
+========================= */
+
+.setup-heading {
+    margin-bottom: 30px;
+}
+
+
+.eyebrow {
+    margin-bottom: 7px;
+
+    color: #84909b;
+
+    font-size: 10px;
+
+    font-weight: 800;
+
+    letter-spacing: 1.5px;
+}
+
+
+.setup-heading h1 {
+    margin:
+        0 0 12px;
+
+    font-size:
+        clamp(
+            27px,
+            5vw,
+            34px
+        );
+
+    line-height: 1.25;
+}
+
+
+.setup-heading p {
+    margin: 0;
+
+    color:
+        var(--secondary);
+
+    font-size: 14px;
+
+    line-height: 1.9;
+}
+
+
+code {
+    padding:
+        2px 5px;
+
+    border-radius: 5px;
+
+    background: #f0f3f5;
+
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        monospace;
+
+    font-size: 0.92em;
+}
+
+
+/* =========================
+   表单
+========================= */
+
+.field {
+    margin-bottom: 20px;
+}
+
+
+.field label {
+    display: block;
+
+    margin-bottom: 8px;
+
+    color: #35414d;
+
+    font-size: 13px;
+
+    font-weight: 700;
+}
+
+
+.field input {
+    width: 100%;
+
+    padding:
+        13px 14px;
+
+    border:
+        1px solid
+        var(--border-strong);
+
+    border-radius: 10px;
+
+    outline: none;
+
+    background: #fbfcfd;
+
+    color: var(--text);
+
+    font-size: 14px;
+
+    transition:
+        border-color 0.2s,
+        box-shadow 0.2s,
+        background 0.2s;
+}
+
+
+.field input:focus {
+    background: white;
+
+    border-color: #8096aa;
+
+    box-shadow:
+        0 0 0 3px
+        rgba(
+            52,
+            82,
+            109,
+            0.08
+        );
+}
+
+
+.field-help {
+    margin-top: 7px;
+
+    color: var(--muted);
+
+    font-size: 11px;
+
+    line-height: 1.6;
+}
+
+
+/* =========================
+   密码
+========================= */
+
+.password-wrap {
+    position: relative;
+}
+
+
+.password-wrap input {
+    padding-right: 74px;
+}
+
+
+.icon-button {
+    position: absolute;
+
+    top: 50%;
+    right: 7px;
+
+    transform:
+        translateY(-50%);
+
+    padding:
+        7px 10px;
+
+    border: none;
+
+    border-radius: 7px;
+
+    background: #eef2f5;
+
+    color: #5f6b76;
+
+    cursor: pointer;
+
+    font-size: 11px;
+}
+
+
+/* =========================
+   按钮
+========================= */
+
+.actions {
+    display: flex;
+
+    justify-content: flex-end;
+
+    gap: 10px;
+
+    margin-top: 28px;
+}
+
+
+.button {
+    min-height: 42px;
+
+    padding:
+        10px 18px;
+
+    border-radius: 9px;
+
+    cursor: pointer;
+
+    font-family: inherit;
+
+    font-size: 13px;
+
+    font-weight: 700;
+}
+
+
+.button:disabled {
+    opacity: 0.5;
+
+    cursor: default;
+}
+
+
+.button.secondary {
+    border:
+        1px solid
+        var(--border-strong);
+
+    background: white;
+
+    color: #475562;
+}
+
+
+.button.primary {
+    border:
+        1px solid
+        var(--primary);
+
+    background:
+        var(--primary);
+
+    color: white;
+}
+
+
+.button.primary:hover:not(:disabled) {
+    background:
+        var(--primary-hover);
+}
+
+
+/* =========================
+   提示
+========================= */
+
+.message {
+    margin-top: 6px;
+
+    padding:
+        12px 14px;
+
+    border-radius: 9px;
+
+    font-size: 12px;
+
+    line-height: 1.7;
+}
+
+
+.message.success {
+    color:
+        var(--success);
+
+    background:
+        var(--success-bg);
+
+    border:
+        1px solid
+        #d4eadc;
+}
+
+
+.message.error {
+    color:
+        var(--error);
+
+    background:
+        var(--error-bg);
+
+    border:
+        1px solid
+        #f0dada;
+}
+
+
+.message.info {
+    color:
+        var(--info);
+
+    background:
+        var(--info-bg);
+
+    border:
+        1px solid
+        #d8e5ef;
+}
+
+
+.setup-note {
+    margin-top: 30px;
+
+    padding-top: 20px;
+
+    border-top:
+        1px solid
+        #edf0f2;
+
+    color: #7b8791;
+
+    font-size: 11px;
+
+    line-height: 1.8;
+}
+
+
+.hidden {
+    display: none !important;
+}
+
+
+/* =========================
+   手机
+========================= */
+
+@media (
+    max-width: 600px
+) {
+
+    .setup-page {
+        align-items:
+            flex-start;
+
+        padding:
+            16px 12px;
+    }
+
+
+    .setup-card {
+        border-radius:
+            15px;
+    }
+
+
+    .actions {
+        flex-direction:
+            column-reverse;
+    }
+
+
+    .button {
+        width: 100%;
+    }
+}

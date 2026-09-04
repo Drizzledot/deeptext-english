@@ -2,57 +2,194 @@ import json
 
 from openai import OpenAI
 
-from app.core.config import settings
-from app.prompts.pass1 import PASS1_PROMPT
-from app.prompts.pass2 import PASS2_PROMPT
-from app.prompts.pass3 import PASS3_PROMPT
+from app.core.config import (
+    settings
+)
 
+from app.prompts.pass1 import (
+    PASS1_PROMPT
+)
 
-client = OpenAI(
-    api_key=settings.LLM_API_KEY,
-    base_url=settings.LLM_BASE_URL
+from app.prompts.pass2 import (
+    PASS2_PROMPT
+)
+
+from app.prompts.pass3 import (
+    PASS3_PROMPT
 )
 
 
-def call_model(messages):
-    return client.chat.completions.create(
-        model=settings.LLM_MODEL,
-        messages=messages
+# =====================================================
+# Client
+# =====================================================
+
+def get_client():
+
+    """
+    每次真正调用模型前重新读取配置。
+
+    这样 FastAPI 可以在没有 .env 的情况下先启动，
+    用户通过网页配置后，无需重启服务。
+    """
+
+    settings.reload()
+
+
+    if not settings.is_configured():
+
+        raise ValueError(
+            "模型尚未配置。"
+            "请先打开 /setup 完成配置。"
+        )
+
+
+    return OpenAI(
+        api_key=
+            settings
+            .LLM_API_KEY,
+
+        base_url=
+            settings
+            .LLM_BASE_URL
     )
 
 
-def get_model_content(response):
-    message = response.choices[0].message
-    message_data = message.model_dump()
+# =====================================================
+# 模型调用
+# =====================================================
 
-    content = message_data.get("content")
+def call_model(
+    messages
+):
 
-    # 兼容部分推理模型把结果放进 reasoning_content
-    if not content or not content.strip():
-        content = message_data.get("reasoning_content")
+    client =
+        get_client()
 
-    if not content or not content.strip():
+
+    return (
+        client
+        .chat
+        .completions
+        .create(
+            model=
+                settings
+                .LLM_MODEL,
+
+            messages=
+                messages
+        )
+    )
+
+
+# =====================================================
+# 获取模型输出
+# =====================================================
+
+def get_model_content(
+    response
+):
+
+    message = (
+        response
+        .choices[0]
+        .message
+    )
+
+
+    message_data = (
+        message
+        .model_dump()
+    )
+
+
+    content = (
+        message_data
+        .get(
+            "content"
+        )
+    )
+
+
+    # 一些 New API / OpenAI-compatible 服务
+    # 会把结果返回在 reasoning_content 中
+
+    if (
+        not content
+        or
+        not content.strip()
+    ):
+
+        content = (
+            message_data
+            .get(
+                "reasoning_content"
+            )
+        )
+
+
+    if (
+        not content
+        or
+        not content.strip()
+    ):
+
         raise ValueError(
-            f"模型返回了空内容，finish_reason="
+            "模型返回了空内容，"
+            f"finish_reason="
             f"{response.choices[0].finish_reason}"
         )
 
-    content = content.strip()
 
-    # 清理 Markdown JSON 代码块
-    if content.startswith("```json"):
-        content = content[7:]
-    elif content.startswith("```"):
-        content = content[3:]
-
-    if content.endswith("```"):
-        content = content[:-3]
-
-    return content.strip()
+    content = (
+        content
+        .strip()
+    )
 
 
-def repair_json(content: str, attempt: int):
+    if content.startswith(
+        "```json"
+    ):
+
+        content = (
+            content[7:]
+        )
+
+
+    elif content.startswith(
+        "```"
+    ):
+
+        content = (
+            content[3:]
+        )
+
+
+    if content.endswith(
+        "```"
+    ):
+
+        content = (
+            content[:-3]
+        )
+
+
+    return (
+        content
+        .strip()
+    )
+
+
+# =====================================================
+# JSON 修复
+# =====================================================
+
+def repair_json(
+    content: str,
+    attempt: int
+):
+
     if attempt == 1:
+
         repair_prompt = """
 你是严格的 JSON 修复器。
 
@@ -76,7 +213,9 @@ def repair_json(content: str, attempt: int):
 7. 不使用 Markdown。
 8. 不输出解释。
 """
+
     else:
+
         repair_prompt = """
 再次严格修复下面的 JSON。
 
@@ -92,101 +231,186 @@ def repair_json(content: str, attempt: int):
 只返回合法 JSON。
 """
 
-    response = call_model([
-        {
-            "role": "system",
-            "content": repair_prompt
-        },
-        {
-            "role": "user",
-            "content": content
-        }
-    ])
 
-    return get_model_content(response)
+    response = (
+        call_model([
+            {
+                "role":
+                    "system",
 
+                "content":
+                    repair_prompt
+            },
 
-def ask_ai(system_prompt: str, user_content: str):
-    response = call_model([
-        {
-            "role": "system",
-            "content": system_prompt
-        },
-        {
-            "role": "user",
-            "content": user_content
-        }
-    ])
+            {
+                "role":
+                    "user",
 
-    content = get_model_content(response)
-
-    try:
-        return json.loads(content)
-
-    except json.JSONDecodeError as e:
-        print(
-            f"第一次 JSON 解析失败，准备自动修复：{e}",
-            flush=True
-        )
-
-    # 第一次修复
-    repaired_content = repair_json(
-        content,
-        attempt=1
+                "content":
+                    content
+            }
+        ])
     )
 
-    try:
-        return json.loads(repaired_content)
 
-    except json.JSONDecodeError as e:
-        print(
-            f"第一次 JSON 修复失败，准备第二次修复：{e}",
-            flush=True
+    return (
+        get_model_content(
+            response
         )
-
-    # 第二次修复
-    second_repaired_content = repair_json(
-        repaired_content,
-        attempt=2
     )
 
+
+# =====================================================
+# AI JSON 调用
+# =====================================================
+
+def ask_ai(
+    system_prompt: str,
+    user_content: str
+):
+
+    response = (
+        call_model([
+            {
+                "role":
+                    "system",
+
+                "content":
+                    system_prompt
+            },
+
+            {
+                "role":
+                    "user",
+
+                "content":
+                    user_content
+            }
+        ])
+    )
+
+
+    content = (
+        get_model_content(
+            response
+        )
+    )
+
+
     try:
-        return json.loads(second_repaired_content)
+
+        return json.loads(
+            content
+        )
+
 
     except json.JSONDecodeError as e:
+
         print(
-            "\n===== JSON REPAIR FAILED =====",
+            "第一次 JSON 解析失败，"
+            f"准备自动修复：{e}",
             flush=True
         )
+
+
+    repaired_content = (
+        repair_json(
+            content,
+            attempt=1
+        )
+    )
+
+
+    try:
+
+        return json.loads(
+            repaired_content
+        )
+
+
+    except json.JSONDecodeError as e:
+
         print(
-            repr(second_repaired_content[:3000]),
+            "第一次 JSON 修复失败，"
+            f"准备第二次修复：{e}",
             flush=True
         )
+
+
+    second_repaired_content = (
+        repair_json(
+            repaired_content,
+            attempt=2
+        )
+    )
+
+
+    try:
+
+        return json.loads(
+            second_repaired_content
+        )
+
+
+    except json.JSONDecodeError as e:
+
         print(
-            "===== END =====\n",
+            "\n"
+            "===== JSON REPAIR FAILED =====",
             flush=True
         )
+
+
+        print(
+            repr(
+                second_repaired_content[
+                    :3000
+                ]
+            ),
+            flush=True
+        )
+
+
+        print(
+            "===== END ====="
+            "\n",
+            flush=True
+        )
+
 
         raise ValueError(
-            f"JSON 自动修复两次后仍然失败：{e}"
+            "JSON 自动修复两次后仍然失败："
+            f"{e}"
         )
 
+
+# =====================================================
+# 三阶段 Pipeline
+# =====================================================
 
 def run_analysis_pipeline(
     text: str,
     progress_callback=None
 ):
-    def progress(stage: str, percent: int, message: str):
+
+    def progress(
+        stage: str,
+        percent: int,
+        message: str
+    ):
+
         if progress_callback:
+
             progress_callback(
                 stage,
                 percent,
                 message
             )
 
-    # =========================
+
+    # =====================
     # Pass 1
-    # =========================
+    # =====================
 
     progress(
         "pass1",
@@ -194,14 +418,19 @@ def run_analysis_pipeline(
         "正在进行文本探索分析..."
     )
 
-    pass1 = ask_ai(
-        PASS1_PROMPT,
-        f"""
+
+    pass1 = (
+        ask_ai(
+            PASS1_PROMPT,
+
+            f"""
 ORIGINAL TEXT:
 
 {text}
 """
+        )
     )
+
 
     progress(
         "pass1_completed",
@@ -209,9 +438,10 @@ ORIGINAL TEXT:
         "Pass 1 分析完成"
     )
 
-    # =========================
+
+    # =====================
     # Pass 2
-    # =========================
+    # =====================
 
     progress(
         "pass2",
@@ -219,9 +449,12 @@ ORIGINAL TEXT:
         "正在验证证据和解释边界..."
     )
 
-    pass2 = ask_ai(
-        PASS2_PROMPT,
-        f"""
+
+    pass2 = (
+        ask_ai(
+            PASS2_PROMPT,
+
+            f"""
 ORIGINAL TEXT:
 
 {text}
@@ -233,7 +466,9 @@ PASS 1 ANALYSIS:
     ensure_ascii=False
 )}
 """
+        )
     )
+
 
     progress(
         "pass2_completed",
@@ -241,9 +476,10 @@ PASS 1 ANALYSIS:
         "Pass 2 验证完成"
     )
 
-    # =========================
+
+    # =====================
     # Pass 3
-    # =========================
+    # =====================
 
     progress(
         "pass3",
@@ -251,13 +487,12 @@ PASS 1 ANALYSIS:
         "正在生成教师教学报告..."
     )
 
-    # 注意：
-    # Pass 3 只能看到原文 + Pass 2
-    # 不传入 Pass 1
 
-    pass3 = ask_ai(
-        PASS3_PROMPT,
-        f"""
+    pass3 = (
+        ask_ai(
+            PASS3_PROMPT,
+
+            f"""
 ORIGINAL TEXT:
 
 {text}
@@ -269,7 +504,9 @@ VERIFIED PASS 2 RESULT:
     ensure_ascii=False
 )}
 """
+        )
     )
+
 
     progress(
         "pass3_completed",
@@ -277,8 +514,14 @@ VERIFIED PASS 2 RESULT:
         "教学报告生成完成"
     )
 
+
     return {
-        "pass1": pass1,
-        "pass2": pass2,
-        "report": pass3
+        "pass1":
+            pass1,
+
+        "pass2":
+            pass2,
+
+        "report":
+            pass3
     }

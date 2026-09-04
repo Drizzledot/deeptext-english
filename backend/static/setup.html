@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>DeepText 初始配置</title>
+
+    <link
+        rel="stylesheet"
+        href="/static/setup.css"
+    >
+</head>
+
+<body>
+
+<main class="setup-page">
+
+    <section class="setup-card">
+
+        <div class="brand-row">
+
+            <div class="brand-logo">
+                D
+            </div>
+
+            <div>
+                <div class="brand-title">
+                    DeepText
+                </div>
+
+                <div class="brand-subtitle">
+                    高中英语深度文本解析
+                </div>
+            </div>
+
+        </div>
+
+
+        <div class="setup-heading">
+
+            <div class="eyebrow">
+                FIRST-TIME SETUP
+            </div>
+
+            <h1>
+                欢迎使用 DeepText
+            </h1>
+
+            <p>
+                首次运行需要配置一个
+                OpenAI-compatible 模型服务。
+                配置只保存在当前 Codespace 的
+                <code>backend/.env</code>
+                中，不会写入 GitHub 仓库。
+            </p>
+
+        </div>
+
+
+        <form
+            id="setupForm"
+            autocomplete="off"
+        >
+
+            <div class="field">
+
+                <label for="baseUrl">
+                    API 地址
+                </label>
+
+                <input
+                    id="baseUrl"
+                    type="url"
+                    placeholder="例如：https://example.com/v1"
+                    required
+                >
+
+                <div class="field-help">
+                    请填写 OpenAI-compatible API Base URL。
+                </div>
+
+            </div>
+
+
+            <div class="field">
+
+                <label for="apiKey">
+                    API Key
+                </label>
+
+                <div class="password-wrap">
+
+                    <input
+                        id="apiKey"
+                        type="password"
+                        placeholder="sk-..."
+                        spellcheck="false"
+                        required
+                    >
+
+                    <button
+                        id="toggleKeyBtn"
+                        class="icon-button"
+                        type="button"
+                    >
+                        显示
+                    </button>
+
+                </div>
+
+                <div class="field-help">
+                    API Key 只用于当前 Codespace 调用模型。
+                </div>
+
+            </div>
+
+
+            <div class="field">
+
+                <label for="model">
+                    模型名称
+                </label>
+
+                <input
+                    id="model"
+                    type="text"
+                    placeholder="例如：deepseek-v4-flash"
+                    spellcheck="false"
+                    required
+                >
+
+            </div>
+
+
+            <div
+                id="messageBox"
+                class="message hidden"
+            ></div>
+
+
+            <div class="actions">
+
+                <button
+                    id="testBtn"
+                    class="button secondary"
+                    type="button"
+                >
+                    测试连接
+                </button>
+
+                <button
+                    id="saveBtn"
+                    class="button primary"
+                    type="submit"
+                >
+                    保存并开始使用
+                </button>
+
+            </div>
+
+        </form>
+
+
+        <div class="setup-note">
+
+            <strong>
+                安全提示：
+            </strong>
+
+            建议保持 Codespaces 的
+            8000 端口为 Private。
+
+            不要把自己的
+            <code>.env</code>
+            或 API Key 提交到 GitHub。
+
+        </div>
+
+    </section>
+
+</main>
+
+
+<script src="/static/setup.js"></script>
+
+</body>
+</html>
