@@ -1,5 +1,5 @@
 # =========================
-# DeepText secrets
+# Secrets
 # =========================
 
 .env
@@ -7,7 +7,7 @@ backend/.env
 
 
 # =========================
-# Python virtual environment
+# Python virtual environments
 # =========================
 
 .venv/
@@ -25,15 +25,9 @@ __pycache__/
 
 
 # =========================
-# Editor
+# Editor / OS
 # =========================
 
 .vscode/
-
-
-# =========================
-# OS
-# =========================
-
 .DS_Store
 Thumbs.db
