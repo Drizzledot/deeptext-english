@@ -14,7 +14,7 @@
     }
   },
 
-  "postCreateCommand": "python -m pip install --upgrade pip && python -m pip install -r backend/requirements.txt",
+  "updateContentCommand": "python -m pip install --upgrade pip && python -m pip install -r backend/requirements.txt",
 
   "postStartCommand": "bash start.sh"
 }
