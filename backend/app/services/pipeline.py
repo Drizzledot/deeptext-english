@@ -2,55 +2,35 @@ import json
 
 from openai import OpenAI
 
-from app.core.config import (
-    settings
-)
-
-from app.prompts.pass1 import (
-    PASS1_PROMPT
-)
-
-from app.prompts.pass2 import (
-    PASS2_PROMPT
-)
-
-from app.prompts.pass3 import (
-    PASS3_PROMPT
-)
+from app.core.config import settings
+from app.prompts.pass1 import PASS1_PROMPT
+from app.prompts.pass2 import PASS2_PROMPT
+from app.prompts.pass3 import PASS3_PROMPT
 
 
 # =====================================================
-# Client
+# OpenAI Client
 # =====================================================
 
 def get_client():
-
     """
-    每次真正调用模型前重新读取配置。
+    每次调用模型前重新读取配置。
 
-    这样 FastAPI 可以在没有 .env 的情况下先启动，
-    用户通过网页配置后，无需重启服务。
+    这样 FastAPI 可以先启动；
+    用户通过网页配置向导保存 .env 后，
+    无需重启服务即可使用新配置。
     """
 
     settings.reload()
 
-
     if not settings.is_configured():
-
         raise ValueError(
-            "模型尚未配置。"
-            "请先打开 /setup 完成配置。"
+            "模型尚未配置。请先打开 /setup 完成配置。"
         )
 
-
     return OpenAI(
-        api_key=
-            settings
-            .LLM_API_KEY,
-
-        base_url=
-            settings
-            .LLM_BASE_URL
+        api_key=settings.LLM_API_KEY,
+        base_url=settings.LLM_BASE_URL,
     )
 
 
@@ -58,26 +38,12 @@ def get_client():
 # 模型调用
 # =====================================================
 
-def call_model(
-    messages
-):
+def call_model(messages):
+    client = get_client()
 
-    client =
-        get_client()
-
-
-    return (
-        client
-        .chat
-        .completions
-        .create(
-            model=
-                settings
-                .LLM_MODEL,
-
-            messages=
-                messages
-        )
+    return client.chat.completions.create(
+        model=settings.LLM_MODEL,
+        messages=messages,
     )
 
 
@@ -85,111 +51,45 @@ def call_model(
 # 获取模型输出
 # =====================================================
 
-def get_model_content(
-    response
-):
+def get_model_content(response):
+    if not response.choices:
+        raise ValueError("模型没有返回 choices")
 
-    message = (
-        response
-        .choices[0]
-        .message
-    )
+    message = response.choices[0].message
+    message_data = message.model_dump()
 
+    content = message_data.get("content")
 
-    message_data = (
-        message
-        .model_dump()
-    )
+    # 部分 OpenAI-compatible / New API 服务
+    # 会把最终内容放在 reasoning_content 中。
+    if not content or not content.strip():
+        content = message_data.get("reasoning_content")
 
-
-    content = (
-        message_data
-        .get(
-            "content"
-        )
-    )
-
-
-    # 一些 New API / OpenAI-compatible 服务
-    # 会把结果返回在 reasoning_content 中
-
-    if (
-        not content
-        or
-        not content.strip()
-    ):
-
-        content = (
-            message_data
-            .get(
-                "reasoning_content"
-            )
-        )
-
-
-    if (
-        not content
-        or
-        not content.strip()
-    ):
-
+    if not content or not content.strip():
         raise ValueError(
             "模型返回了空内容，"
-            f"finish_reason="
-            f"{response.choices[0].finish_reason}"
+            f"finish_reason={response.choices[0].finish_reason}"
         )
 
+    content = content.strip()
 
-    content = (
-        content
-        .strip()
-    )
+    if content.startswith("```json"):
+        content = content[7:]
+    elif content.startswith("```"):
+        content = content[3:]
 
+    if content.endswith("```"):
+        content = content[:-3]
 
-    if content.startswith(
-        "```json"
-    ):
-
-        content = (
-            content[7:]
-        )
-
-
-    elif content.startswith(
-        "```"
-    ):
-
-        content = (
-            content[3:]
-        )
-
-
-    if content.endswith(
-        "```"
-    ):
-
-        content = (
-            content[:-3]
-        )
-
-
-    return (
-        content
-        .strip()
-    )
+    return content.strip()
 
 
 # =====================================================
 # JSON 修复
 # =====================================================
 
-def repair_json(
-    content: str,
-    attempt: int
-):
-
+def repair_json(content: str, attempt: int):
     if attempt == 1:
-
         repair_prompt = """
 你是严格的 JSON 修复器。
 
@@ -213,9 +113,7 @@ def repair_json(
 7. 不使用 Markdown。
 8. 不输出解释。
 """
-
     else:
-
         repair_prompt = """
 再次严格修复下面的 JSON。
 
@@ -231,156 +129,89 @@ def repair_json(
 只返回合法 JSON。
 """
 
-
-    response = (
-        call_model([
+    response = call_model(
+        [
             {
-                "role":
-                    "system",
-
-                "content":
-                    repair_prompt
+                "role": "system",
+                "content": repair_prompt,
             },
-
             {
-                "role":
-                    "user",
-
-                "content":
-                    content
-            }
-        ])
+                "role": "user",
+                "content": content,
+            },
+        ]
     )
 
-
-    return (
-        get_model_content(
-            response
-        )
-    )
+    return get_model_content(response)
 
 
 # =====================================================
 # AI JSON 调用
 # =====================================================
 
-def ask_ai(
-    system_prompt: str,
-    user_content: str
-):
-
-    response = (
-        call_model([
+def ask_ai(system_prompt: str, user_content: str):
+    response = call_model(
+        [
             {
-                "role":
-                    "system",
-
-                "content":
-                    system_prompt
+                "role": "system",
+                "content": system_prompt,
             },
-
             {
-                "role":
-                    "user",
-
-                "content":
-                    user_content
-            }
-        ])
+                "role": "user",
+                "content": user_content,
+            },
+        ]
     )
 
-
-    content = (
-        get_model_content(
-            response
-        )
-    )
-
+    content = get_model_content(response)
 
     try:
+        return json.loads(content)
 
-        return json.loads(
-            content
-        )
-
-
-    except json.JSONDecodeError as e:
-
+    except json.JSONDecodeError as exc:
         print(
-            "第一次 JSON 解析失败，"
-            f"准备自动修复：{e}",
-            flush=True
+            f"第一次 JSON 解析失败，准备自动修复：{exc}",
+            flush=True,
         )
 
-
-    repaired_content = (
-        repair_json(
-            content,
-            attempt=1
-        )
+    repaired_content = repair_json(
+        content,
+        attempt=1,
     )
 
-
     try:
+        return json.loads(repaired_content)
 
-        return json.loads(
-            repaired_content
-        )
-
-
-    except json.JSONDecodeError as e:
-
+    except json.JSONDecodeError as exc:
         print(
-            "第一次 JSON 修复失败，"
-            f"准备第二次修复：{e}",
-            flush=True
+            f"第一次 JSON 修复失败，准备第二次修复：{exc}",
+            flush=True,
         )
 
-
-    second_repaired_content = (
-        repair_json(
-            repaired_content,
-            attempt=2
-        )
+    second_repaired_content = repair_json(
+        repaired_content,
+        attempt=2,
     )
 
-
     try:
+        return json.loads(second_repaired_content)
 
-        return json.loads(
-            second_repaired_content
-        )
-
-
-    except json.JSONDecodeError as e:
-
+    except json.JSONDecodeError as exc:
         print(
-            "\n"
-            "===== JSON REPAIR FAILED =====",
-            flush=True
+            "\n===== JSON REPAIR FAILED =====",
+            flush=True,
         )
-
-
         print(
-            repr(
-                second_repaired_content[
-                    :3000
-                ]
-            ),
-            flush=True
+            repr(second_repaired_content[:3000]),
+            flush=True,
         )
-
-
         print(
-            "===== END ====="
-            "\n",
-            flush=True
+            "===== END =====\n",
+            flush=True,
         )
-
 
         raise ValueError(
-            "JSON 自动修复两次后仍然失败："
-            f"{e}"
+            f"JSON 自动修复两次后仍然失败：{exc}"
         )
 
 
@@ -390,23 +221,19 @@ def ask_ai(
 
 def run_analysis_pipeline(
     text: str,
-    progress_callback=None
+    progress_callback=None,
 ):
-
     def progress(
         stage: str,
         percent: int,
-        message: str
+        message: str,
     ):
-
         if progress_callback:
-
             progress_callback(
                 stage,
                 percent,
-                message
+                message,
             )
-
 
     # =====================
     # Pass 1
@@ -415,29 +242,23 @@ def run_analysis_pipeline(
     progress(
         "pass1",
         15,
-        "正在进行文本探索分析..."
+        "正在进行文本探索分析...",
     )
 
-
-    pass1 = (
-        ask_ai(
-            PASS1_PROMPT,
-
-            f"""
+    pass1 = ask_ai(
+        PASS1_PROMPT,
+        f"""
 ORIGINAL TEXT:
 
 {text}
-"""
-        )
+""",
     )
-
 
     progress(
         "pass1_completed",
         35,
-        "Pass 1 分析完成"
+        "Pass 1 分析完成",
     )
-
 
     # =====================
     # Pass 2
@@ -446,36 +267,27 @@ ORIGINAL TEXT:
     progress(
         "pass2",
         45,
-        "正在验证证据和解释边界..."
+        "正在验证证据和解释边界...",
     )
 
-
-    pass2 = (
-        ask_ai(
-            PASS2_PROMPT,
-
-            f"""
+    pass2 = ask_ai(
+        PASS2_PROMPT,
+        f"""
 ORIGINAL TEXT:
 
 {text}
 
 PASS 1 ANALYSIS:
 
-{json.dumps(
-    pass1,
-    ensure_ascii=False
-)}
-"""
-        )
+{json.dumps(pass1, ensure_ascii=False)}
+""",
     )
-
 
     progress(
         "pass2_completed",
         65,
-        "Pass 2 验证完成"
+        "Pass 2 验证完成",
     )
-
 
     # =====================
     # Pass 3
@@ -484,44 +296,30 @@ PASS 1 ANALYSIS:
     progress(
         "pass3",
         75,
-        "正在生成教师教学报告..."
+        "正在生成教师教学报告...",
     )
 
-
-    pass3 = (
-        ask_ai(
-            PASS3_PROMPT,
-
-            f"""
+    pass3 = ask_ai(
+        PASS3_PROMPT,
+        f"""
 ORIGINAL TEXT:
 
 {text}
 
 VERIFIED PASS 2 RESULT:
 
-{json.dumps(
-    pass2,
-    ensure_ascii=False
-)}
-"""
-        )
+{json.dumps(pass2, ensure_ascii=False)}
+""",
     )
-
 
     progress(
         "pass3_completed",
         95,
-        "教学报告生成完成"
+        "教学报告生成完成",
     )
 
-
     return {
-        "pass1":
-            pass1,
-
-        "pass2":
-            pass2,
-
-        "report":
-            pass3
+        "pass1": pass1,
+        "pass2": pass2,
+        "report": pass3,
     }
