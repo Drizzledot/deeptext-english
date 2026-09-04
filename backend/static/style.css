@@ -1095,20 +1095,6 @@ textarea:focus {
     position: relative;
 }
 
-.logic-node:not(:last-child)
-.logic-line {
-    position: absolute;
-
-    top: 34px;
-    left: 17px;
-
-    width: 2px;
-
-    height: calc(100% - 4px);
-
-    background: #dce3e9;
-}
-
 .logic-number {
     width: 34px;
     height: 34px;
@@ -1525,4 +1511,43 @@ textarea:focus {
         padding: 18px;
     }
 
+}
+/* =====================================================
+   修复 Underlying Logic 最后一项错位
+===================================================== */
+
+.logic-node {
+    position: relative;
+}
+
+/* 所有连接线都脱离 Grid 布局 */
+.logic-line {
+    position: absolute;
+
+    top: 34px;
+    left: 17px;
+
+    width: 2px;
+    height: calc(100% - 4px);
+
+    background: #dce3e9;
+
+    pointer-events: none;
+}
+
+/* 最后一项不需要向下连接线 */
+.logic-node:last-child .logic-line {
+    display: none;
+}
+
+/* 确保文本永远占据第二列 */
+.logic-text {
+    grid-column: 2;
+
+    min-width: 0;
+
+    width: 100%;
+
+    overflow-wrap: break-word;
+    word-break: normal;
 }
