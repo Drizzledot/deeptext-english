@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepText 高中英语深度文本解析</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+<header class="topbar">
+    <div class="brand">
+        <div class="brand-logo">D</div>
+
+        <div class="brand-text">
+            <div class="brand-title">DeepText</div>
+            <div class="brand-subtitle">高中英语深度文本解析</div>
+        </div>
+    </div>
+
+    <div id="topStatus" class="status-badge">
+        就绪
+    </div>
+</header>
+
+
+<main class="app-shell">
+
+    <!-- 左侧输入区 -->
+    <section class="input-panel">
+
+        <div class="panel-title-row">
+            <div>
+                <h2>原文输入</h2>
+                <p>粘贴需要解析的英文文本</p>
+            </div>
+        </div>
+
+        <textarea
+            id="article"
+            placeholder="Paste your English text here..."
+        ></textarea>
+
+        <div class="input-bottom">
+            <span id="wordCount" class="word-count">
+                0 words
+            </span>
+
+            <button id="analyzeBtn">
+                开始深度解析
+            </button>
+        </div>
+
+        <div id="error" class="error-box hidden"></div>
+
+    </section>
+
+
+    <!-- 右侧 -->
+    <section class="result-panel">
+
+        <!-- 初始状态 -->
+        <div id="emptyState" class="state-view">
+
+            <div class="state-icon">⌕</div>
+
+            <h2>等待文本解析</h2>
+
+            <p>
+                输入英文文本后开始分析。DeepText 将从文本逻辑、
+                核心洞见、语言意义和教学价值等维度生成报告。
+            </p>
+
+        </div>
+
+
+        <!-- 分析进度 -->
+        <div id="analysisState" class="analysis-state hidden">
+
+            <div class="analysis-state-header">
+                <div class="spinner"></div>
+
+                <div>
+                    <h2>正在深度解析</h2>
+                    <p id="analysisStateMessage">
+                        正在准备分析任务……
+                    </p>
+                </div>
+            </div>
+
+
+            <div class="analysis-progress">
+
+                <div id="analysisStep1" class="analysis-step">
+                    <div class="step-icon">1</div>
+
+                    <div class="step-content">
+                        <div class="step-title">
+                            文本探索
+                        </div>
+
+                        <div class="step-description">
+                            识别文本模式、核心逻辑与候选洞见
+                        </div>
+                    </div>
+                </div>
+
+
+                <div id="analysisStep2" class="analysis-step">
+                    <div class="step-icon">2</div>
+
+                    <div class="step-content">
+                        <div class="step-title">
+                            证据验证
+                        </div>
+
+                        <div class="step-description">
+                            检查证据边界并排除过度解读
+                        </div>
+                    </div>
+                </div>
+
+
+                <div id="analysisStep3" class="analysis-step">
+                    <div class="step-icon">3</div>
+
+                    <div class="step-content">
+                        <div class="step-title">
+                            教学转译
+                        </div>
+
+                        <div class="step-description">
+                            生成面向高中英语教师的解析报告
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- 报告 -->
+        <div id="resultArea" class="hidden">
+
+            <div class="report-header">
+
+                <div class="eyebrow">
+                    DEEPTEXT REPORT
+                </div>
+
+                <h1>文本解析报告</h1>
+
+                <p>
+                    Evidence before interpretation
+                </p>
+
+            </div>
+
+
+            <div class="tabs">
+
+                <button
+                    class="tab active"
+                    data-tab="overview"
+                >
+                    速览
+                </button>
+
+                <button
+                    class="tab"
+                    data-tab="teaching"
+                >
+                    教学
+                </button>
+
+            </div>
+
+
+            <div
+                id="overview"
+                class="tab-content active"
+            ></div>
+
+            <div
+                id="teaching"
+                class="tab-content"
+            ></div>
+
+        </div>
+
+    </section>
+
+</main>
+
+<script src="/static/app.js"></script>
+
+</body>
+</html>
