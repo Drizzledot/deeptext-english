@@ -1,37 +1,53 @@
-from pathlib import Path
+const articleInput = document.getElementById("article");
+const analyzeBtn = document.getElementById("analyzeBtn");
+const errorBox = document.getElementById("error");
+const emptyState = document.getElementById("emptyState");
+const analysisState = document.getElementById("analysisState");
+const analysisStateMessage = document.getElementById("analysisStateMessage");
+const resultArea = document.getElementById("resultArea");
+const overview = document.getElementById("overview");
+const teaching = document.getElementById("teaching");
+const wordCount = document.getElementById("wordCount");
+const topStatus = document.getElementById("topStatus");
 
-app_js = r'''const articleInput =
-    document.getElementById("article");
 
-const analyzeBtn =
-    document.getElementById("analyzeBtn");
+/* =====================================================
+   基础检查
+===================================================== */
 
-const errorBox =
-    document.getElementById("error");
+function assertRequiredElements() {
+    const required = {
+        articleInput,
+        analyzeBtn,
+        errorBox,
+        emptyState,
+        analysisState,
+        analysisStateMessage,
+        resultArea,
+        overview,
+        teaching,
+        wordCount,
+        topStatus,
+    };
 
-const emptyState =
-    document.getElementById("emptyState");
+    const missing = Object.entries(required)
+        .filter(([, value]) => !value)
+        .map(([key]) => key);
 
-const analysisState =
-    document.getElementById("analysisState");
+    if (missing.length > 0) {
+        console.error(
+            "DeepText 前端初始化失败，缺少页面元素：",
+            missing
+        );
 
-const analysisStateMessage =
-    document.getElementById("analysisStateMessage");
+        throw new Error(
+            `页面结构与 app.js 不匹配：${missing.join(", ")}`
+        );
+    }
+}
 
-const resultArea =
-    document.getElementById("resultArea");
 
-const overview =
-    document.getElementById("overview");
-
-const teaching =
-    document.getElementById("teaching");
-
-const wordCount =
-    document.getElementById("wordCount");
-
-const topStatus =
-    document.getElementById("topStatus");
+assertRequiredElements();
 
 
 /* =====================================================
@@ -45,21 +61,16 @@ articleInput.addEventListener(
 
 
 function updateWordCount() {
-
-    const text =
-        articleInput.value.trim();
+    const text = articleInput.value.trim();
 
     if (!text) {
-        wordCount.textContent =
-            "0 words";
+        wordCount.textContent = "0 words";
         return;
     }
 
-    const words =
-        text.split(/\s+/).length;
+    const words = text.split(/\s+/).length;
 
-    wordCount.textContent =
-        `${words} words`;
+    wordCount.textContent = `${words} words`;
 }
 
 
@@ -71,36 +82,49 @@ analyzeBtn.addEventListener(
     "click",
     async () => {
 
-        const article =
-            articleInput.value.trim();
+        const article = articleInput.value.trim();
 
         if (!article) {
             alert("请先输入英文文本");
             return;
         }
 
+
         enterAnalysisMode();
+
 
         try {
 
-            const response =
-                await fetch(
-                    `/api/analyze?article=${
-                        encodeURIComponent(article)
-                    }`,
-                    {
-                        method: "POST"
-                    }
-                );
+            const response = await fetch(
+                `/api/analyze?article=${encodeURIComponent(article)}`,
+                {
+                    method: "POST",
+                }
+            );
+
 
             if (!response.ok) {
+
+                const detail =
+                    await readErrorDetail(response);
+
                 throw new Error(
-                    `创建任务失败：${response.status}`
+                    detail ||
+                    `创建任务失败：HTTP ${response.status}`
                 );
             }
 
+
             const data =
                 await response.json();
+
+
+            if (!data.run_id) {
+                throw new Error(
+                    "服务器没有返回 run_id"
+                );
+            }
+
 
             await pollAnalysis(
                 data.run_id
@@ -108,12 +132,16 @@ analyzeBtn.addEventListener(
 
         } catch (error) {
 
-            showError(
-                error.message
+            console.error(
+                "DeepText 分析失败：",
+                error
             );
 
+            showError(
+                error?.message ||
+                "分析失败"
+            );
         }
-
     }
 );
 
@@ -128,28 +156,53 @@ async function pollAnalysis(runId) {
 
         const response =
             await fetch(
-                `/api/analysis/${runId}`
+                `/api/analysis/${encodeURIComponent(runId)}`,
+                {
+                    cache: "no-store",
+                }
             );
 
+
         if (!response.ok) {
+
+            const detail =
+                await readErrorDetail(response);
+
             throw new Error(
-                `获取分析状态失败：${response.status}`
+                detail ||
+                `获取分析状态失败：HTTP ${response.status}`
             );
         }
+
 
         const data =
             await response.json();
 
+
         updateProgress(
             data.message ||
-                "正在分析...",
+            "正在分析...",
+
             data.stage ||
-                ""
+            ""
         );
 
+
         if (
-            data.status === "completed"
+            data.status ===
+            "completed"
         ) {
+
+            if (
+                !data.result ||
+                !data.result.report
+            ) {
+
+                throw new Error(
+                    "分析完成，但服务器没有返回报告"
+                );
+            }
+
 
             showReport(
                 data.result.report
@@ -158,8 +211,10 @@ async function pollAnalysis(runId) {
             return;
         }
 
+
         if (
-            data.status === "failed"
+            data.status ===
+            "failed"
         ) {
 
             throw new Error(
@@ -167,6 +222,7 @@ async function pollAnalysis(runId) {
                 "分析失败"
             );
         }
+
 
         await sleep(1800);
     }
@@ -180,6 +236,7 @@ async function pollAnalysis(runId) {
 function enterAnalysisMode() {
 
     analyzeBtn.disabled = true;
+
 
     errorBox.classList.add(
         "hidden"
@@ -197,11 +254,14 @@ function enterAnalysisMode() {
         "hidden"
     );
 
+
     topStatus.textContent =
         "分析中";
 
+
     analysisStateMessage.textContent =
-        "正在准备分析任务……";
+        "正在创建分析任务……";
+
 
     resetSteps();
 }
@@ -210,6 +270,7 @@ function enterAnalysisMode() {
 function showReport(report) {
 
     analyzeBtn.disabled = false;
+
 
     analysisState.classList.add(
         "hidden"
@@ -227,12 +288,16 @@ function showReport(report) {
         "hidden"
     );
 
+
     topStatus.textContent =
         "分析完成";
 
+
     renderReport(report);
 
-    activateTab("overview");
+    activateTab(
+        "overview"
+    );
 }
 
 
@@ -240,13 +305,11 @@ function showError(message) {
 
     analyzeBtn.disabled = false;
 
+
     analysisState.classList.add(
         "hidden"
     );
 
-    resultArea.classList.add(
-        "hidden"
-    );
 
     errorBox.textContent =
         message;
@@ -254,6 +317,7 @@ function showError(message) {
     errorBox.classList.remove(
         "hidden"
     );
+
 
     topStatus.textContent =
         "分析失败";
@@ -264,32 +328,39 @@ function showError(message) {
    右侧分析进度
 ===================================================== */
 
-function resetSteps() {
-
-    const steps = getAnalysisSteps();
-
-    steps.forEach(step => {
-        step.classList.remove(
-            "analysis-step-active",
-            "analysis-step-completed"
-        );
-    });
-}
-
-
 function getAnalysisSteps() {
 
     return [
         document.getElementById(
             "analysisStep1"
         ),
+
         document.getElementById(
             "analysisStep2"
         ),
+
         document.getElementById(
             "analysisStep3"
-        )
+        ),
     ];
+}
+
+
+function resetSteps() {
+
+    getAnalysisSteps()
+        .forEach(
+            (step) => {
+
+                if (!step) return;
+
+
+                step.classList.remove(
+                    "analysis-step-active",
+                    "analysis-step-completed"
+                );
+            }
+        );
 }
 
 
@@ -301,35 +372,36 @@ function updateProgress(
     analysisStateMessage.textContent =
         message;
 
+
     const [
         step1,
         step2,
         step3
     ] = getAnalysisSteps();
 
+
     resetSteps();
 
 
-    /* Pass 1 正在进行 */
+    if (
+        stage ===
+        "pass1"
+    ) {
 
-    if (stage === "pass1") {
-
-        step1.classList.add(
+        step1?.classList.add(
             "analysis-step-active"
         );
 
         return;
     }
 
-
-    /* Pass 1 完成 */
 
     if (
         stage ===
         "pass1_completed"
     ) {
 
-        step1.classList.add(
+        step1?.classList.add(
             "analysis-step-completed"
         );
 
@@ -337,34 +409,33 @@ function updateProgress(
     }
 
 
-    /* Pass 2 正在进行 */
+    if (
+        stage ===
+        "pass2"
+    ) {
 
-    if (stage === "pass2") {
-
-        step1.classList.add(
+        step1?.classList.add(
             "analysis-step-completed"
         );
 
-        step2.classList.add(
+        step2?.classList.add(
             "analysis-step-active"
         );
 
         return;
     }
 
-
-    /* Pass 2 完成 */
 
     if (
         stage ===
         "pass2_completed"
     ) {
 
-        step1.classList.add(
+        step1?.classList.add(
             "analysis-step-completed"
         );
 
-        step2.classList.add(
+        step2?.classList.add(
             "analysis-step-completed"
         );
 
@@ -372,19 +443,20 @@ function updateProgress(
     }
 
 
-    /* Pass 3 正在进行 */
+    if (
+        stage ===
+        "pass3"
+    ) {
 
-    if (stage === "pass3") {
-
-        step1.classList.add(
+        step1?.classList.add(
             "analysis-step-completed"
         );
 
-        step2.classList.add(
+        step2?.classList.add(
             "analysis-step-completed"
         );
 
-        step3.classList.add(
+        step3?.classList.add(
             "analysis-step-active"
         );
 
@@ -392,23 +464,22 @@ function updateProgress(
     }
 
 
-    /* Pass 3 完成 */
-
     if (
         stage ===
         "pass3_completed" ||
-        stage === "completed"
+        stage ===
+        "completed"
     ) {
 
-        step1.classList.add(
+        step1?.classList.add(
             "analysis-step-completed"
         );
 
-        step2.classList.add(
+        step2?.classList.add(
             "analysis-step-completed"
         );
 
-        step3.classList.add(
+        step3?.classList.add(
             "analysis-step-completed"
         );
     }
@@ -425,15 +496,12 @@ function renderReport(report) {
     teaching.innerHTML = "";
 
 
-    /* ======================
-       速览
-    ====================== */
-
     renderSnapshotPro(
         report[
             "一、Teacher Snapshot"
         ]
     );
+
 
     renderLogicSection(
         report[
@@ -441,31 +509,36 @@ function renderReport(report) {
         ]
     );
 
+
     createStandardSection(
         overview,
         "03",
         "Insight",
         "文本真正建立了什么意义，以及问题是否已经解决",
-        report["四、Insight"],
+        report[
+            "四、Insight"
+        ],
         true
     );
+
 
     createStandardSection(
         overview,
         "04",
         "Deep Shift",
         "文本中是否存在真正的认知结构变化",
-        report["五、Deep Shift"]
+        report[
+            "五、Deep Shift"
+        ]
     );
 
-
-    /* ======================
-       教学
-    ====================== */
 
     renderEvidenceSection(
-        report["三、Evidence"]
+        report[
+            "三、Evidence"
+        ]
     );
+
 
     createStandardSection(
         teaching,
@@ -477,11 +550,13 @@ function renderReport(report) {
         ]
     );
 
+
     renderTeachingValue(
         report[
             "七、Teaching Value"
         ]
     );
+
 
     renderInquiryPro(
         report[
@@ -489,14 +564,18 @@ function renderReport(report) {
         ]
     );
 
+
     renderCloseReading(
         report[
             "九、Close Reading"
         ]
     );
 
+
     renderTransfer(
-        report["十、Transfer"]
+        report[
+            "十、Transfer"
+        ]
     );
 }
 
@@ -514,14 +593,22 @@ function renderSnapshotPro(content) {
             "先看这一篇到底值得教什么"
         );
 
+
     const wrapper =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     wrapper.className =
         "snapshot-pro";
 
 
-    if (!content) {
+    if (
+        !content ||
+        typeof content !==
+            "object" ||
+        Array.isArray(content)
+    ) {
 
         wrapper.appendChild(
             createEmpty()
@@ -529,12 +616,7 @@ function renderSnapshotPro(content) {
 
     } else {
 
-        /*
-         * 不显示 Snapshot 内部的 Deep Shift，
-         * 因为下面已经有独立的 Deep Shift 模块。
-         */
-
-        const order = [
+        const preferredOrder = [
             "Core Insight",
             "一句话内容",
             "一句话底层逻辑",
@@ -542,107 +624,64 @@ function renderSnapshotPro(content) {
             "Logic Hinge",
             "Must Teach",
             "最值得问学生的问题",
-            "迁移任务"
+            "迁移任务",
         ];
 
 
-        order.forEach(key => {
+        const displayed =
+            new Set();
 
-            if (!(key in content)) {
-                return;
-            }
 
-            const block =
-                document.createElement(
-                    "div"
+        preferredOrder.forEach(
+            (key) => {
+
+                if (
+                    !(
+                        key in content
+                    )
+                ) {
+                    return;
+                }
+
+
+                displayed.add(
+                    key
                 );
 
-            block.className =
-                "snapshot-block";
 
-
-            if (
-                key ===
-                "Core Insight"
-            ) {
-
-                block.classList.add(
-                    "primary"
-                );
-            }
-
-
-            if (
-                key ===
-                "Must Teach"
-            ) {
-
-                block.classList.add(
-                    "must"
+                wrapper.appendChild(
+                    createSnapshotBlock(
+                        key,
+                        content[key]
+                    )
                 );
             }
+        );
 
 
-            if (
-                key ===
-                "最值得问学生的问题"
-            ) {
+        Object.entries(content)
+            .forEach(
+                ([key, value]) => {
 
-                block.classList.add(
-                    "question"
-                );
-            }
-
-
-            if (
-                key ===
-                "迁移任务"
-            ) {
-
-                block.classList.add(
-                    "transfer"
-                );
-            }
+                    if (
+                        displayed.has(
+                            key
+                        ) ||
+                        key ===
+                            "Deep Shift"
+                    ) {
+                        return;
+                    }
 
 
-            const label =
-                document.createElement(
-                    "div"
-                );
-
-            label.className =
-                "snapshot-kicker";
-
-            label.textContent =
-                key;
-
-
-            const value =
-                document.createElement(
-                    "div"
-                );
-
-            value.className =
-                "snapshot-main";
-
-            value.textContent =
-                formatValue(
-                    content[key]
-                );
-
-
-            block.appendChild(
-                label
+                    wrapper.appendChild(
+                        createSnapshotBlock(
+                            key,
+                            value
+                        )
+                    );
+                }
             );
-
-            block.appendChild(
-                value
-            );
-
-            wrapper.appendChild(
-                block
-            );
-        });
     }
 
 
@@ -650,9 +689,108 @@ function renderSnapshotPro(content) {
         wrapper
     );
 
+
     overview.appendChild(
         section
     );
+}
+
+
+function createSnapshotBlock(
+    key,
+    value
+) {
+
+    const block =
+        document.createElement(
+            "div"
+        );
+
+    block.className =
+        "snapshot-block";
+
+
+    if (
+        key ===
+        "Core Insight"
+    ) {
+
+        block.classList.add(
+            "primary"
+        );
+    }
+
+
+    if (
+        key ===
+        "Must Teach"
+    ) {
+
+        block.classList.add(
+            "must"
+        );
+    }
+
+
+    if (
+        key ===
+        "最值得问学生的问题"
+    ) {
+
+        block.classList.add(
+            "question"
+        );
+    }
+
+
+    if (
+        key ===
+        "迁移任务"
+    ) {
+
+        block.classList.add(
+            "transfer"
+        );
+    }
+
+
+    const label =
+        document.createElement(
+            "div"
+        );
+
+    label.className =
+        "snapshot-kicker";
+
+    label.textContent =
+        key;
+
+
+    const valueBox =
+        document.createElement(
+            "div"
+        );
+
+    valueBox.className =
+        "snapshot-main";
+
+
+    renderCompactValue(
+        value,
+        valueBox
+    );
+
+
+    block.appendChild(
+        label
+    );
+
+    block.appendChild(
+        valueBox
+    );
+
+
+    return block;
 }
 
 
@@ -660,7 +798,9 @@ function renderSnapshotPro(content) {
    Underlying Logic
 ===================================================== */
 
-function renderLogicSection(content) {
+function renderLogicSection(
+    content
+) {
 
     const section =
         createSectionWrapper(
@@ -671,22 +811,31 @@ function renderLogicSection(content) {
 
 
     const card =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     card.className =
         "report-card";
 
 
-    if (!content) {
+    if (
+        !content ||
+        typeof content !==
+            "object"
+    ) {
 
-        card.appendChild(
-            createEmpty()
+        renderContent(
+            content,
+            card
         );
 
     } else {
 
         const chain =
-            content["Logic Chain"];
+            content[
+                "Logic Chain"
+            ];
 
 
         if (chain) {
@@ -700,14 +849,17 @@ function renderLogicSection(content) {
                 "logic-chain";
 
 
-            let nodes =
+            const nodes =
                 normalizeLogicChain(
                     chain
                 );
 
 
             nodes.forEach(
-                (node, index) => {
+                (
+                    node,
+                    index
+                ) => {
 
                     const row =
                         document.createElement(
@@ -777,55 +929,101 @@ function renderLogicSection(content) {
         }
 
 
-        if (
-            content[
-                "Logic Hinge"
-            ]
-        ) {
+        const highlightedKeys = [
+            "Logic Hinge",
+            "Logic Function",
+            "Transferable Logic Pattern",
+        ];
 
-            card.appendChild(
-                createLogicHighlight(
-                    "Logic Hinge",
-                    content[
-                        "Logic Hinge"
-                    ]
-                )
+
+        highlightedKeys.forEach(
+            (key) => {
+
+                if (
+                    content[key]
+                ) {
+
+                    card.appendChild(
+                        createLogicHighlight(
+                            key,
+                            content[key]
+                        )
+                    );
+                }
+            }
+        );
+
+
+        const handled =
+            new Set([
+                "Logic Chain",
+                ...highlightedKeys,
+            ]);
+
+
+        Object.entries(content)
+            .forEach(
+                ([key, value]) => {
+
+                    if (
+                        handled.has(
+                            key
+                        )
+                    ) {
+                        return;
+                    }
+
+
+                    const item =
+                        document.createElement(
+                            "div"
+                        );
+
+                    item.className =
+                        "report-item";
+
+
+                    const label =
+                        document.createElement(
+                            "div"
+                        );
+
+                    label.className =
+                        "report-label";
+
+                    label.textContent =
+                        key;
+
+
+                    const body =
+                        document.createElement(
+                            "div"
+                        );
+
+                    body.className =
+                        "report-value";
+
+
+                    renderContent(
+                        value,
+                        body
+                    );
+
+
+                    item.appendChild(
+                        label
+                    );
+
+                    item.appendChild(
+                        body
+                    );
+
+
+                    card.appendChild(
+                        item
+                    );
+                }
             );
-        }
-
-
-        if (
-            content[
-                "Logic Function"
-            ]
-        ) {
-
-            card.appendChild(
-                createLogicHighlight(
-                    "Logic Function",
-                    content[
-                        "Logic Function"
-                    ]
-                )
-            );
-        }
-
-
-        if (
-            content[
-                "Transferable Logic Pattern"
-            ]
-        ) {
-
-            card.appendChild(
-                createLogicHighlight(
-                    "Transferable Logic Pattern",
-                    content[
-                        "Transferable Logic Pattern"
-                    ]
-                )
-            );
-        }
     }
 
 
@@ -833,19 +1031,27 @@ function renderLogicSection(content) {
         card
     );
 
+
     overview.appendChild(
         section
     );
 }
 
 
-function normalizeLogicChain(chain) {
+function normalizeLogicChain(
+    chain
+) {
 
-    if (Array.isArray(chain)) {
+    if (
+        Array.isArray(chain)
+    ) {
 
         return chain
-            .map(item =>
-                String(item).trim()
+            .map(
+                (item) =>
+                    formatValue(
+                        item
+                    ).trim()
             )
             .filter(Boolean);
     }
@@ -857,28 +1063,26 @@ function normalizeLogicChain(chain) {
     ) {
 
         return [
-            formatValue(chain)
+            formatValue(
+                chain
+            )
         ];
     }
 
 
-    /*
-     * 支持：
-     * 1. A → B → C
-     * 2. 1. A 2. B 3. C
-     * 3. 多行列表
-     */
-
     let nodes =
         chain
-            .split(/→|\n/)
-            .map(item =>
-                item
-                    .replace(
-                        /^\s*\d+[\.\、]\s*/,
-                        ""
-                    )
-                    .trim()
+            .split(
+                /→|\n/
+            )
+            .map(
+                (item) =>
+                    item
+                        .replace(
+                            /^\s*\d+[\.\、]\s*/,
+                            ""
+                        )
+                        .trim()
             )
             .filter(Boolean);
 
@@ -892,20 +1096,25 @@ function normalizeLogicChain(chain) {
                 .split(
                     /(?=\d+[\.\、]\s*)/
                 )
-                .map(item =>
-                    item
-                        .replace(
-                            /^\s*\d+[\.\、]\s*/,
-                            ""
-                        )
-                        .trim()
+                .map(
+                    (item) =>
+                        item
+                            .replace(
+                                /^\s*\d+[\.\、]\s*/,
+                                ""
+                            )
+                            .trim()
                 )
                 .filter(Boolean);
 
+
         if (
-            numbered.length > 1
+            numbered.length >
+            1
         ) {
-            nodes = numbered;
+
+            nodes =
+                numbered;
         }
     }
 
@@ -948,8 +1157,11 @@ function createLogicHighlight(
     text.className =
         "report-value";
 
-    text.textContent =
-        formatValue(value);
+
+    renderContent(
+        value,
+        text
+    );
 
 
     box.appendChild(
@@ -960,6 +1172,7 @@ function createLogicHighlight(
         text
     );
 
+
     return box;
 }
 
@@ -968,7 +1181,9 @@ function createLogicHighlight(
    Evidence
 ===================================================== */
 
-function renderEvidenceSection(content) {
+function renderEvidenceSection(
+    content
+) {
 
     const section =
         createSectionWrapper(
@@ -988,132 +1203,197 @@ function renderEvidenceSection(content) {
 
 
     if (
-        !Array.isArray(content) ||
+        !Array.isArray(
+            content
+        ) ||
         content.length === 0
     ) {
 
-        wrapper.appendChild(
-            createEmpty()
+        renderContent(
+            content,
+            wrapper
         );
 
     } else {
 
-        content.forEach(item => {
+        content.forEach(
+            (item) => {
 
-            const card =
-                document.createElement(
-                    "div"
-                );
+                if (
+                    !item ||
+                    typeof item !==
+                        "object"
+                ) {
 
-            card.className =
-                "evidence-card";
+                    const card =
+                        document.createElement(
+                            "div"
+                        );
 
-
-            const quote =
-                document.createElement(
-                    "div"
-                );
-
-            quote.className =
-                "evidence-quote";
-
-            quote.textContent =
-                item[
-                    "原文关键证据"
-                ] ||
-                item[
-                    "原文关键句"
-                ] ||
-                "—";
+                    card.className =
+                        "evidence-card";
 
 
-            card.appendChild(
-                quote
-            );
+                    renderContent(
+                        item,
+                        card
+                    );
 
 
-            const meta =
-                document.createElement(
-                    "div"
-                );
+                    wrapper.appendChild(
+                        card
+                    );
 
-            meta.className =
-                "evidence-meta";
+                    return;
+                }
 
 
-            Object.entries(item)
-                .filter(
-                    ([key]) =>
-                        key !==
-                        "原文关键证据" &&
-                        key !==
+                const card =
+                    document.createElement(
+                        "div"
+                    );
+
+                card.className =
+                    "evidence-card";
+
+
+                const quoteValue =
+                    item[
+                        "原文关键证据"
+                    ] ||
+                    item[
                         "原文关键句"
+                    ] ||
+                    item[
+                        "Evidence"
+                    ] ||
+                    item[
+                        "evidence"
+                    ];
+
+
+                if (
+                    quoteValue
+                ) {
+
+                    const quote =
+                        document.createElement(
+                            "div"
+                        );
+
+                    quote.className =
+                        "evidence-quote";
+
+
+                    renderCompactValue(
+                        quoteValue,
+                        quote
+                    );
+
+
+                    card.appendChild(
+                        quote
+                    );
+                }
+
+
+                const meta =
+                    document.createElement(
+                        "div"
+                    );
+
+                meta.className =
+                    "evidence-meta";
+
+
+                Object.entries(
+                    item
                 )
-                .forEach(
-                    ([key, value]) => {
-
-                        const row =
-                            document.createElement(
-                                "div"
-                            );
-
-                        row.className =
-                            "evidence-row";
-
-
-                        const label =
-                            document.createElement(
-                                "div"
-                            );
-
-                        label.className =
-                            "evidence-label";
-
-                        label.textContent =
-                            key;
-
-
-                        const body =
-                            document.createElement(
-                                "div"
-                            );
-
-                        body.textContent =
-                            formatValue(
+                    .filter(
+                        ([key]) =>
+                            ![
+                                "原文关键证据",
+                                "原文关键句",
+                                "Evidence",
+                                "evidence",
+                            ].includes(
+                                key
+                            )
+                    )
+                    .forEach(
+                        (
+                            [
+                                key,
                                 value
+                            ]
+                        ) => {
+
+                            const row =
+                                document.createElement(
+                                    "div"
+                                );
+
+                            row.className =
+                                "evidence-row";
+
+
+                            const label =
+                                document.createElement(
+                                    "div"
+                                );
+
+                            label.className =
+                                "evidence-label";
+
+                            label.textContent =
+                                key;
+
+
+                            const body =
+                                document.createElement(
+                                    "div"
+                                );
+
+
+                            renderContent(
+                                value,
+                                body
                             );
 
 
-                        row.appendChild(
-                            label
-                        );
+                            row.appendChild(
+                                label
+                            );
 
-                        row.appendChild(
-                            body
-                        );
+                            row.appendChild(
+                                body
+                            );
 
 
-                        meta.appendChild(
-                            row
-                        );
-                    }
+                            meta.appendChild(
+                                row
+                            );
+                        }
+                    );
+
+
+                card.appendChild(
+                    meta
                 );
 
 
-            card.appendChild(
-                meta
-            );
-
-            wrapper.appendChild(
-                card
-            );
-        });
+                wrapper.appendChild(
+                    card
+                );
+            }
+        );
     }
 
 
     section.appendChild(
         wrapper
     );
+
 
     teaching.appendChild(
         section
@@ -1125,7 +1405,9 @@ function renderEvidenceSection(content) {
    Teaching Value
 ===================================================== */
 
-function renderTeachingValue(content) {
+function renderTeachingValue(
+    content
+) {
 
     const section =
         createSectionWrapper(
@@ -1159,12 +1441,18 @@ function renderTeachingValue(content) {
             "Not Necessary",
             "不必展开",
             "not"
-        ]
+        ],
     ];
 
 
     configs.forEach(
-        ([key, title, type]) => {
+        (
+            [
+                key,
+                title,
+                type
+            ]
+        ) => {
 
             const column =
                 document.createElement(
@@ -1192,63 +1480,18 @@ function renderTeachingValue(content) {
             );
 
 
-            const values =
-                content
+            const value =
+                content &&
+                typeof content ===
+                    "object"
                     ? content[key]
                     : null;
 
 
-            if (
-                Array.isArray(values) &&
-                values.length > 0
-            ) {
-
-                const list =
-                    document.createElement(
-                        "ul"
-                    );
-
-                list.className =
-                    "report-list";
-
-
-                values.forEach(value => {
-
-                    const li =
-                        document.createElement(
-                            "li"
-                        );
-
-                    li.textContent =
-                        formatValue(value);
-
-                    list.appendChild(
-                        li
-                    );
-                });
-
-
-                column.appendChild(
-                    list
-                );
-
-            } else {
-
-                const value =
-                    document.createElement(
-                        "div"
-                    );
-
-                value.className =
-                    "report-value";
-
-                value.textContent =
-                    formatValue(values);
-
-                column.appendChild(
-                    value
-                );
-            }
+            renderContent(
+                value,
+                column
+            );
 
 
             grid.appendChild(
@@ -1262,6 +1505,7 @@ function renderTeachingValue(content) {
         grid
     );
 
+
     teaching.appendChild(
         section
     );
@@ -1272,7 +1516,9 @@ function renderTeachingValue(content) {
    Inquiry Path
 ===================================================== */
 
-function renderInquiryPro(content) {
+function renderInquiryPro(
+    content
+) {
 
     const section =
         createSectionWrapper(
@@ -1292,18 +1538,24 @@ function renderInquiryPro(content) {
 
 
     if (
-        !Array.isArray(content) ||
+        !Array.isArray(
+            content
+        ) ||
         content.length === 0
     ) {
 
-        timeline.appendChild(
-            createEmpty()
+        renderContent(
+            content,
+            timeline
         );
 
     } else {
 
         content.forEach(
-            (item, index) => {
+            (
+                item,
+                index
+            ) => {
 
                 const row =
                     document.createElement(
@@ -1336,9 +1588,12 @@ function renderInquiryPro(content) {
 
 
                 if (
+                    item &&
                     typeof item ===
                         "object" &&
-                    item !== null
+                    !Array.isArray(
+                        item
+                    )
                 ) {
 
                     const level =
@@ -1350,32 +1605,52 @@ function renderInquiryPro(content) {
                         "inquiry-level";
 
                     level.textContent =
-                        item["层级"] ||
-                        item["step"] ||
+                        item[
+                            "层级"
+                        ] ||
+                        item[
+                            "step"
+                        ] ||
                         `Question ${index + 1}`;
-
-
-                    const question =
-                        document.createElement(
-                            "div"
-                        );
-
-                    question.className =
-                        "inquiry-question";
-
-                    question.textContent =
-                        item["问题"] ||
-                        item["question"] ||
-                        "";
 
 
                     body.appendChild(
                         level
                     );
 
-                    body.appendChild(
-                        question
-                    );
+
+                    const questionValue =
+                        item[
+                            "问题"
+                        ] ||
+                        item[
+                            "question"
+                        ];
+
+
+                    if (
+                        questionValue
+                    ) {
+
+                        const question =
+                            document.createElement(
+                                "div"
+                            );
+
+                        question.className =
+                            "inquiry-question";
+
+
+                        renderCompactValue(
+                            questionValue,
+                            question
+                        );
+
+
+                        body.appendChild(
+                            question
+                        );
+                    }
 
 
                     const anchorText =
@@ -1387,7 +1662,9 @@ function renderInquiryPro(content) {
                         ];
 
 
-                    if (anchorText) {
+                    if (
+                        anchorText
+                    ) {
 
                         const anchor =
                             document.createElement(
@@ -1397,8 +1674,12 @@ function renderInquiryPro(content) {
                         anchor.className =
                             "inquiry-anchor";
 
-                        anchor.textContent =
-                            anchorText;
+
+                        renderCompactValue(
+                            anchorText,
+                            anchor
+                        );
+
 
                         body.appendChild(
                             anchor
@@ -1415,8 +1696,12 @@ function renderInquiryPro(content) {
                     question.className =
                         "inquiry-question";
 
-                    question.textContent =
-                        formatValue(item);
+
+                    renderCompactValue(
+                        item,
+                        question
+                    );
+
 
                     body.appendChild(
                         question
@@ -1432,6 +1717,7 @@ function renderInquiryPro(content) {
                     body
                 );
 
+
                 timeline.appendChild(
                     row
                 );
@@ -1444,6 +1730,7 @@ function renderInquiryPro(content) {
         timeline
     );
 
+
     teaching.appendChild(
         section
     );
@@ -1454,7 +1741,9 @@ function renderInquiryPro(content) {
    Close Reading
 ===================================================== */
 
-function renderCloseReading(content) {
+function renderCloseReading(
+    content
+) {
 
     const section =
         createSectionWrapper(
@@ -1474,122 +1763,207 @@ function renderCloseReading(content) {
 
 
     if (
-        !Array.isArray(content) ||
+        !Array.isArray(
+            content
+        ) ||
         content.length === 0
     ) {
 
-        wrapper.appendChild(
-            createEmpty()
+        renderContent(
+            content,
+            wrapper
         );
 
     } else {
 
-        content.forEach(item => {
+        content.forEach(
+            (item) => {
 
-            const card =
-                document.createElement(
-                    "div"
-                );
+                if (
+                    !item ||
+                    typeof item !==
+                        "object"
+                ) {
 
-            card.className =
-                "close-reading-card";
+                    const card =
+                        document.createElement(
+                            "div"
+                        );
 
-
-            const sentence =
-                document.createElement(
-                    "div"
-                );
-
-            sentence.className =
-                "close-reading-sentence";
-
-            sentence.textContent =
-                item["句子"] ||
-                "—";
+                    card.className =
+                        "close-reading-card";
 
 
-            card.appendChild(
-                sentence
-            );
+                    const sentence =
+                        document.createElement(
+                            "div"
+                        );
+
+                    sentence.className =
+                        "close-reading-sentence";
 
 
-            const body =
-                document.createElement(
-                    "div"
-                );
-
-            body.className =
-                "close-reading-body";
+                    renderCompactValue(
+                        item,
+                        sentence
+                    );
 
 
-            Object.entries(item)
-                .filter(
-                    ([key]) =>
-                        key !== "句子"
+                    card.appendChild(
+                        sentence
+                    );
+
+
+                    wrapper.appendChild(
+                        card
+                    );
+
+                    return;
+                }
+
+
+                const card =
+                    document.createElement(
+                        "div"
+                    );
+
+                card.className =
+                    "close-reading-card";
+
+
+                const sentenceValue =
+                    item[
+                        "句子"
+                    ] ||
+                    item[
+                        "原句"
+                    ] ||
+                    item[
+                        "sentence"
+                    ];
+
+
+                if (
+                    sentenceValue
+                ) {
+
+                    const sentence =
+                        document.createElement(
+                            "div"
+                        );
+
+                    sentence.className =
+                        "close-reading-sentence";
+
+
+                    renderCompactValue(
+                        sentenceValue,
+                        sentence
+                    );
+
+
+                    card.appendChild(
+                        sentence
+                    );
+                }
+
+
+                const body =
+                    document.createElement(
+                        "div"
+                    );
+
+                body.className =
+                    "close-reading-body";
+
+
+                Object.entries(
+                    item
                 )
-                .forEach(
-                    ([key, value]) => {
+                    .filter(
+                        ([key]) =>
+                            ![
+                                "句子",
+                                "原句",
+                                "sentence",
+                            ].includes(
+                                key
+                            )
+                    )
+                    .forEach(
+                        (
+                            [
+                                key,
+                                value
+                            ]
+                        ) => {
 
-                        const row =
-                            document.createElement(
-                                "div"
+                            const row =
+                                document.createElement(
+                                    "div"
+                                );
+
+                            row.className =
+                                "close-reading-row";
+
+
+                            const label =
+                                document.createElement(
+                                    "div"
+                                );
+
+                            label.className =
+                                "close-reading-label";
+
+                            label.textContent =
+                                key;
+
+
+                            const valueBox =
+                                document.createElement(
+                                    "div"
+                                );
+
+
+                            renderContent(
+                                value,
+                                valueBox
                             );
 
-                        row.className =
-                            "close-reading-row";
 
-
-                        const label =
-                            document.createElement(
-                                "div"
+                            row.appendChild(
+                                label
                             );
 
-                        label.className =
-                            "close-reading-label";
-
-                        label.textContent =
-                            key;
-
-
-                        const text =
-                            document.createElement(
-                                "div"
+                            row.appendChild(
+                                valueBox
                             );
 
-                        text.textContent =
-                            formatValue(value);
+
+                            body.appendChild(
+                                row
+                            );
+                        }
+                    );
 
 
-                        row.appendChild(
-                            label
-                        );
-
-                        row.appendChild(
-                            text
-                        );
-
-
-                        body.appendChild(
-                            row
-                        );
-                    }
+                card.appendChild(
+                    body
                 );
 
 
-            card.appendChild(
-                body
-            );
-
-            wrapper.appendChild(
-                card
-            );
-        });
+                wrapper.appendChild(
+                    card
+                );
+            }
+        );
     }
 
 
     section.appendChild(
         wrapper
     );
+
 
     teaching.appendChild(
         section
@@ -1601,7 +1975,9 @@ function renderCloseReading(content) {
    Transfer
 ===================================================== */
 
-function renderTransfer(content) {
+function renderTransfer(
+    content
+) {
 
     const section =
         createSectionWrapper(
@@ -1640,8 +2016,11 @@ function renderTransfer(content) {
     text.className =
         "transfer-text";
 
-    text.textContent =
-        formatValue(content);
+
+    renderContent(
+        content,
+        text
+    );
 
 
     card.appendChild(
@@ -1656,6 +2035,7 @@ function renderTransfer(content) {
     section.appendChild(
         card
     );
+
 
     teaching.appendChild(
         section
@@ -1755,6 +2135,7 @@ function createSectionWrapper(
         heading
     );
 
+
     return section;
 }
 
@@ -1784,7 +2165,9 @@ function createStandardSection(
     card.className =
         "report-card";
 
+
     if (highlight) {
+
         card.classList.add(
             "report-card-highlight"
         );
@@ -1801,6 +2184,7 @@ function createStandardSection(
         card
     );
 
+
     container.appendChild(
         section
     );
@@ -1808,7 +2192,7 @@ function createStandardSection(
 
 
 /* =====================================================
-   通用递归内容渲染
+   通用内容渲染
 ===================================================== */
 
 function renderContent(
@@ -1830,9 +2214,11 @@ function renderContent(
     }
 
 
-    /* Array */
-
-    if (Array.isArray(content)) {
+    if (
+        Array.isArray(
+            content
+        )
+    ) {
 
         if (
             content.length === 0
@@ -1848,14 +2234,19 @@ function renderContent(
 
         const objectArray =
             content.every(
-                item =>
+                (item) =>
+                    item &&
                     typeof item ===
                         "object" &&
-                    item !== null
+                    !Array.isArray(
+                        item
+                    )
             );
 
 
-        if (objectArray) {
+        if (
+            objectArray
+        ) {
 
             const wrapper =
                 document.createElement(
@@ -1866,25 +2257,29 @@ function renderContent(
                 "object-list";
 
 
-            content.forEach(item => {
+            content.forEach(
+                (item) => {
 
-                const sub =
-                    document.createElement(
-                        "div"
+                    const sub =
+                        document.createElement(
+                            "div"
+                        );
+
+                    sub.className =
+                        "object-card";
+
+
+                    renderContent(
+                        item,
+                        sub
                     );
 
-                sub.className =
-                    "object-card";
 
-                renderContent(
-                    item,
-                    sub
-                );
-
-                wrapper.appendChild(
-                    sub
-                );
-            });
+                    wrapper.appendChild(
+                        sub
+                    );
+                }
+            );
 
 
             parent.appendChild(
@@ -1902,20 +2297,40 @@ function renderContent(
                 "report-list";
 
 
-            content.forEach(item => {
+            content.forEach(
+                (item) => {
 
-                const li =
-                    document.createElement(
-                        "li"
+                    const li =
+                        document.createElement(
+                            "li"
+                        );
+
+
+                    if (
+                        item &&
+                        typeof item ===
+                            "object"
+                    ) {
+
+                        renderContent(
+                            item,
+                            li
+                        );
+
+                    } else {
+
+                        li.textContent =
+                            formatValue(
+                                item
+                            );
+                    }
+
+
+                    list.appendChild(
+                        li
                     );
-
-                li.textContent =
-                    formatValue(item);
-
-                list.appendChild(
-                    li
-                );
-            });
+                }
+            );
 
 
             parent.appendChild(
@@ -1923,77 +2338,97 @@ function renderContent(
             );
         }
 
+
         return;
     }
 
-
-    /* Object */
 
     if (
         typeof content ===
         "object"
     ) {
 
-        for (
-            const [key, value]
-            of Object.entries(content)
+        const entries =
+            Object.entries(
+                content
+            );
+
+
+        if (
+            entries.length === 0
         ) {
 
-            const item =
-                document.createElement(
-                    "div"
-                );
-
-            item.className =
-                "report-item";
-
-
-            const label =
-                document.createElement(
-                    "div"
-                );
-
-            label.className =
-                "report-label";
-
-            label.textContent =
-                key;
-
-
-            const body =
-                document.createElement(
-                    "div"
-                );
-
-            body.className =
-                "report-value";
-
-
-            item.appendChild(
-                label
-            );
-
-            item.appendChild(
-                body
-            );
-
-
-            renderContent(
-                value,
-                body
-            );
-
-
             parent.appendChild(
-                item
+                createEmpty()
             );
+
+            return;
         }
+
+
+        entries.forEach(
+            (
+                [
+                    key,
+                    value
+                ]
+            ) => {
+
+                const item =
+                    document.createElement(
+                        "div"
+                    );
+
+                item.className =
+                    "report-item";
+
+
+                const label =
+                    document.createElement(
+                        "div"
+                    );
+
+                label.className =
+                    "report-label";
+
+                label.textContent =
+                    key;
+
+
+                const body =
+                    document.createElement(
+                        "div"
+                    );
+
+                body.className =
+                    "report-value";
+
+
+                renderContent(
+                    value,
+                    body
+                );
+
+
+                item.appendChild(
+                    label
+                );
+
+                item.appendChild(
+                    body
+                );
+
+
+                parent.appendChild(
+                    item
+                );
+            }
+        );
+
 
         return;
     }
 
-
-    /* Primitive */
 
     const value =
         document.createElement(
@@ -2004,11 +2439,70 @@ function renderContent(
         "report-value";
 
     value.textContent =
-        formatValue(content);
+        formatValue(
+            content
+        );
+
 
     parent.appendChild(
         value
     );
+}
+
+
+function renderCompactValue(
+    value,
+    parent
+) {
+
+    if (
+        value === null ||
+        value === undefined ||
+        value === ""
+    ) {
+
+        parent.textContent =
+            "无";
+
+        return;
+    }
+
+
+    if (
+        Array.isArray(
+            value
+        )
+    ) {
+
+        parent.textContent =
+            value.length > 0
+                ? value
+                    .map(
+                        formatValue
+                    )
+                    .join("；")
+                : "无";
+
+        return;
+    }
+
+
+    if (
+        typeof value ===
+        "object"
+    ) {
+
+        renderContent(
+            value,
+            parent
+        );
+
+        return;
+    }
+
+
+    parent.textContent =
+        String(value);
 }
 
 
@@ -2029,11 +2523,14 @@ function createEmpty() {
     element.textContent =
         "无";
 
+
     return element;
 }
 
 
-function formatValue(value) {
+function formatValue(
+    value
+) {
 
     if (
         value === null ||
@@ -2045,19 +2542,21 @@ function formatValue(value) {
     }
 
 
-    if (Array.isArray(value)) {
+    if (
+        Array.isArray(
+            value
+        )
+    ) {
 
-        if (
-            value.length === 0
-        ) {
-            return "无";
-        }
-
-        return value
-            .map(item =>
-                formatValue(item)
-            )
-            .join("；");
+        return (
+            value.length > 0
+                ? value
+                    .map(
+                        formatValue
+                    )
+                    .join("；")
+                : "无"
+        );
     }
 
 
@@ -2067,25 +2566,62 @@ function formatValue(value) {
     ) {
 
         try {
+
             return JSON.stringify(
                 value,
                 null,
                 2
             );
+
         } catch {
-            return String(value);
+
+            return String(
+                value
+            );
         }
     }
 
 
-    return String(value);
+    return String(
+        value
+    );
+}
+
+
+async function readErrorDetail(
+    response
+) {
+
+    try {
+
+        const data =
+            await response.json();
+
+
+        return (
+            data.detail ||
+            data.message ||
+            ""
+        );
+
+    } catch {
+
+        try {
+
+            return await response.text();
+
+        } catch {
+
+            return "";
+        }
+    }
 }
 
 
 function sleep(ms) {
 
     return new Promise(
-        resolve =>
+        (resolve) =>
             setTimeout(
                 resolve,
                 ms
@@ -2099,30 +2635,40 @@ function sleep(ms) {
 ===================================================== */
 
 document
-    .querySelectorAll(".tab")
-    .forEach(tab => {
+    .querySelectorAll(
+        ".tab"
+    )
+    .forEach(
+        (tab) => {
 
-        tab.addEventListener(
-            "click",
-            () => {
+            tab.addEventListener(
+                "click",
+                () => {
 
-                activateTab(
-                    tab.dataset.tab
-                );
-            }
-        );
-    });
+                    activateTab(
+                        tab.dataset.tab
+                    );
+                }
+            );
+        }
+    );
 
 
-function activateTab(tabId) {
+function activateTab(
+    tabId
+) {
 
     document
-        .querySelectorAll(".tab")
+        .querySelectorAll(
+            ".tab"
+        )
         .forEach(
-            item =>
+            (item) => {
+
                 item.classList.remove(
                     "active"
-                )
+                );
+            }
         );
 
 
@@ -2131,10 +2677,12 @@ function activateTab(tabId) {
             ".tab-content"
         )
         .forEach(
-            item =>
+            (item) => {
+
                 item.classList.remove(
                     "active"
-                )
+                );
+            }
         );
 
 
@@ -2143,27 +2691,19 @@ function activateTab(tabId) {
             `.tab[data-tab="${tabId}"]`
         );
 
+
     const targetContent =
         document.getElementById(
             tabId
         );
 
 
-    if (targetTab) {
-        targetTab.classList.add(
-            "active"
-        );
-    }
+    targetTab?.classList.add(
+        "active"
+    );
 
-    if (targetContent) {
-        targetContent.classList.add(
-            "active"
-        );
-    }
+
+    targetContent?.classList.add(
+        "active"
+    );
 }
-'''
-
-path = Path("/mnt/data/app.js")
-path.write_text(app_js, encoding="utf-8")
-print(f"已生成：{path}")
-print(f"大小：{path.stat().st_size} bytes")
